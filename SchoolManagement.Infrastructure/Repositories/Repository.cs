@@ -4,6 +4,7 @@ using SchoolManagement.Infrastructure.Persistance;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -49,6 +50,11 @@ namespace SchoolManagement.Infrastructure.Repositories
                 _studentDbContext.Set<T>().Remove(entity);
                 await _studentDbContext.SaveChangesAsync();
             }
+        }
+
+        public async Task<T?> FirstOrDefault(Expression<Func<T, bool>> predicate)
+        {
+            return await _studentDbContext.Set<T>().FirstOrDefaultAsync(predicate);
         }
     }
 }

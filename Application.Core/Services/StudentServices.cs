@@ -38,7 +38,8 @@ namespace SchoolManagement.Application.Services
                     Gender = s.Gender,
                     Nationality = s.Nationality,
                     Religion = s.Religion,
-                    Address = s.Address
+                    Address = s.Address,
+                    Email = s.Email
                 });
             }
         }
@@ -62,7 +63,8 @@ namespace SchoolManagement.Application.Services
                     Gender = s.Gender,
                     Nationality = s.Nationality,
                     Religion = s.Religion,
-                    Address = s.Address
+                    Address = s.Address,
+                    Email = s.Email
                 };
             }
         }
@@ -78,7 +80,8 @@ namespace SchoolManagement.Application.Services
                 Gender = studentDto.Gender,
                 Nationality = studentDto.Nationality,
                 Religion = studentDto.Religion,
-                Address = studentDto.Address
+                Address = studentDto.Address,
+                Email = studentDto.Email
             };
             await _studentRepository.AddAsync(newStudent);
             studentDto.Id = newStudent.Id;
@@ -102,6 +105,7 @@ namespace SchoolManagement.Application.Services
                 student.Nationality = studentDto.Nationality;
                 student.Religion = studentDto.Religion;
                 student.Address = studentDto.Address;
+                student.Email = studentDto.Email;
             }
 
             await _studentRepository.UpdateAsync(student);
