@@ -17,5 +17,6 @@ namespace SchoolManagement.Application.DTOs
         public required string Nationality { get; set; }
         public required string Religion { get; set; }
         public required string Address { get; set; }
+        public required string Email { get; set; }
     }
 }

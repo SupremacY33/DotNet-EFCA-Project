@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Interfaces;
+using SchoolManagement.Infrastructure.Persistance;
 
 namespace SchoolManagement.API.Controllers
 {
@@ -9,10 +10,17 @@ namespace SchoolManagement.API.Controllers
     public class StudentController : ControllerBase
     {
         private readonly IStudentServices _studentServices;
+        private readonly IUserServices _userServices;
+        private readonly StudentDbContext _studentDbContext;
+        private readonly IAuthServices _authServices;
 
-        public StudentController(IStudentServices studentServices)
+        public StudentController(IStudentServices studentServices, IUserServices userServices, 
+            StudentDbContext studentDbContext, IAuthServices authServices)
         {
             _studentServices = studentServices;
+            _userServices = userServices;
+            _studentDbContext = studentDbContext;
+            _authServices = authServices;
         }
 
         [HttpGet]
@@ -38,9 +46,57 @@ namespace SchoolManagement.API.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var createdStudent = await _studentServices.CreateStudentAsync(studentDto);
-            CreatedAtAction(nameof(GetStudentById), new { id = createdStudent.Id }, createdStudent);
-            return Ok($"Student Record Was Created Successfully!!!");
+            using var transaction = await _studentDbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                // Step 1 - Create a student record
+                var createStudent = await _studentServices.CreateStudentAsync(studentDto);
+
+                // Step 2 - Create a link user account for the student
+                var (createUser, tempPassword) = await _userServices.CreateUserForStudentAsync(createStudent);
+
+                // Step 3 - Commit both transaction as one
+                await transaction.CommitAsync();
+
+                // Step 4 - Return the created student details along with temporary password
+                return CreatedAtAction
+                    (
+                        nameof(GetStudentById),
+                        new { id = createStudent.Id },
+                        new
+                        {
+                            Message = $"Student Record (Id: {createStudent.Id}) and User Account Created Successfully!",
+                            Student = new
+                            {
+                                createStudent.Id,
+                                createStudent.FirstName,
+                                createStudent.LastName,
+                                createStudent.Email,
+                                createStudent.JoinDate,
+                                createStudent.DateOfBirth,
+                                createStudent.Gender,
+                                createStudent.Nationality,
+                                createStudent.Religion
+                            },
+                            UserCredential = new
+                            {
+                                Username = createUser.Username,
+                                TemporaryPassword = tempPassword
+                            }
+                        }
+                    );
+            }
+            catch (Exception ex)
+            {
+                // Rollback transaction if any error occurs
+                await transaction.RollbackAsync();
+                return StatusCode(500, new 
+                {
+                    Message = "An error occurred while creating the student and user account.",
+                    Details = ex.Message
+                });
+            }
         }
 
         [HttpPut("{id}")]
@@ -69,6 +125,33 @@ namespace SchoolManagement.API.Controllers
 
             await _studentServices.DeleteStudentAsync(id);
             return Ok($"Student Record With Id: {id} Was Deleted Successfully!!");
+        }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginDTO loginDTO)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            else 
+            {
+                var token = await _authServices.AuthenticationAsync(loginDTO);
+
+                if (token == null)
+                {
+                    return Unauthorized("Invalid username or password.");
+                }
+                else 
+                {
+                    return Ok(new 
+                    {
+                        Token = token,
+                        Message = "Login Successful!!",
+                        Expiration = DateTime.UtcNow.AddHours(2)
+                    });
+                }
+            }
         }
     }
 }
